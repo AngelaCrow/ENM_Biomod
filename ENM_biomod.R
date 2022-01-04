@@ -13,12 +13,12 @@ library("biomod2")
 setwd("C:/")
 
 ####DataFormating ####
-shapePath <- 'C:/'
+shapePath <- 'C:/WWF_ecoregions'
 shapeLayer <- "wwf_terr_ecos"
 regionalizacion <- rgdal::readOGR(shapePath, shapeLayer)
 
 #Current climate
-bioclima<-stack(list.files(path="", pattern = "*.tif$", full.names=TRUE)) 
+bioclima<-stack(list.files(path="C:/", pattern = "*.tif$", full.names=TRUE)) 
 
 #Future climate
 #--------------------------------- BCC_SSP245
@@ -45,16 +45,12 @@ covarDataFolder_T3<-stack(list.files(path = "C:/T3", pattern="*.tif$", full.name
 args <- list.files("C:/", pattern = "*.csv$",full.names = TRUE) #A folder with all species csv (We run this code in a cluster with slurm)
 
 
-inputDataFile <- args[1]
+inputDataFile <- args[3]
 outputFolder1 <- inputDataFile %>%
   basename %>%
-  file_path_sans_ext
-outputFolder1
-outputFolder<- gsub(" ", ".", outputFolder1)
-outputFolder
+  file_path_sans_ext;outputFolder1
 
-outputFolder2<- gsub("_", " ", outputFolder1)
-outputFolder2
+outputFolder<- gsub(" ", ".", outputFolder1);outputFolder
 
 if (!dir.exists(outputFolder)) {
   dir.create(outputFolder, recursive = TRUE)
@@ -62,11 +58,10 @@ if (!dir.exists(outputFolder)) {
 
 # Extract envorimental varibales with species occurrences
 crs.wgs84 <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-occsData <- readr::read_csv(inputDataFile)
+occsData <- readr::read_csv(inputDataFile)#working directory must be the same of your csv
 
 #Filter species with more than 250 (this could be change if your region is bigger)
 if (dim(occsData)[1] > 250) {occsData <- occsData[sample(1:dim(occsData)[1], 250, replace=FALSE),] }
-names(occsData)[names(occsData)== outputFolder2] <- outputFolder
 
 sp::coordinates(occsData) <- c("x", "y") #Change if the columns are name differently
 sp::proj4string(occsData) <- crs.wgs84
@@ -127,15 +122,13 @@ ecoregionsOfInterest <- sp::over(occsData, regionalizacion) %>%
 
 idsEcoRegions <- unique(ecoregionsOfInterest$ECO_ID)
 polygonsOfInterest <- regionalizacion[regionalizacion$ECO_ID %in% idsEcoRegions, ]
-pts_b <- gBuffer(occsData, width=4)
+pts_b <- gBuffer(occsData, width=4)#This can be change 
 pts_b <- as(pts_b, 'SpatialPolygonsDataFrame')
 
 #Poligono area de calibracion
 polygonsOfInterest<-gIntersection(pts_b, polygonsOfInterest, drop_lower_td = T)
-
-#Poligono area  transferencia
-polyTransferencia<-gBuffer(polygonsOfInterest, width=2)
-polyTransferencia <- as(polyTransferencia, 'SpatialPolygonsDataFrame')
+polygonsOfInterest<-gBuffer(polygonsOfInterest, width=0.5)
+plot(polygonsOfInterest)
 
 # Variables ambientales
 # Cortar bioclimas con mascara M
@@ -226,7 +219,7 @@ myBiomodData <- BIOMOD_FormatingData(resp.var = myResp,
                                      expl.var = myExpl,
                                      resp.xy = myRespCoord,
                                      resp.name = myRespName,
-                                     PA.nb.rep = 1,
+                                     PA.nb.rep = 5,
                                      PA.nb.absences = 10000,
                                      PA.strategy = 'random')
 
@@ -278,7 +271,7 @@ myBiomodEM <- BIOMOD_EnsembleModeling(
   prob.ci.alpha = 0.05,
   eval.metric.quality.threshold = c(0.7),
   prob.mean.weight = T, 
-  VarImport = 1)
+  VarImport = 10)
 
 myVarImportEM<-data.frame(get_variables_importance(myBiomodEM))
 myVarImportEM<-myVarImportEM[5]
@@ -327,7 +320,7 @@ myBiomodEM_env_1_45_T1<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                         binary.meth = "TSS")
 
 myBiomodEM_env_1_45_T1
-#plot(myBiomodEM_GreenControl_T1)
+plot(myBiomodEM_GreenControl_T1)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_1_45_T1/proj_env_1_45_T1_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -353,7 +346,7 @@ myBiomodEM_env_1_45_T2<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_1_45_T2
-#plot(myBiomodEM_GreenControl_T2)
+plot(myBiomodEM_GreenControl_T2)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_1_45_T2/proj_env_1_45_T2_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -379,7 +372,7 @@ myBiomodEM_env_1_45_T3<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_1_45_T3
-#plot(myBiomodEM_GreenControl_T3)
+plot(myBiomodEM_GreenControl_T3)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_1_45_T3/proj_env_1_45_T3_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -406,7 +399,7 @@ myBiomodEM_env_1_85_T1<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_1_85_T1
-#plot(myBiomodEM_GreenControl_T1)
+plot(myBiomodEM_GreenControl_T1)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_1_85_T1/proj_env_1_85_T1_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -432,7 +425,7 @@ myBiomodEM_env_1_85_T2<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_1_85_T2
-#plot(myBiomodEM_GreenControl_T2)
+plot(myBiomodEM_GreenControl_T2)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_1_85_T2/proj_env_1_85_T2_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -458,7 +451,7 @@ myBiomodEM_env_1_85_T3<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_1_85_T3
-#plot(myBiomodEM_GreenControl_T3)
+plot(myBiomodEM_GreenControl_T3)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_1_85_T3/proj_env_1_85_T3_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -484,7 +477,7 @@ myBiomodEM_env_2_45_T1<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_2_45_T1
-#plot(myBiomodEM_GreenControl_T1)
+plot(myBiomodEM_GreenControl_T1)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_2_45_T1/proj_env_2_45_T1_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -510,7 +503,7 @@ myBiomodEM_env_2_45_T2<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_2_45_T2
-#plot(myBiomodEM_GreenControl_T2)
+plot(myBiomodEM_GreenControl_T2)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_2_45_T2/proj_env_2_45_T2_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -536,7 +529,7 @@ myBiomodEM_env_2_45_T3<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_2_45_T3
-#plot(myBiomodEM_GreenControl_T3)
+plot(myBiomodEM_GreenControl_T3)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_2_45_T3/proj_env_2_45_T3_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -563,7 +556,7 @@ myBiomodEM_env_2_85_T1<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_2_85_T1
-#plot(myBiomodEM_GreenControl_T1)
+plot(myBiomodEM_GreenControl_T1)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_2_85_T1/proj_env_2_85_T1_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -589,7 +582,7 @@ myBiomodEM_env_2_85_T2<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_2_85_T2
-#plot(myBiomodEM_GreenControl_T2)
+plot(myBiomodEM_GreenControl_T2)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_2_85_T2/proj_env_2_85_T2_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -615,7 +608,7 @@ myBiomodEM_env_2_85_T3<-BIOMOD_EnsembleForecasting( EM.output  = myBiomodEM,
                                                     binary.meth = "TSS")
 
 myBiomodEM_env_2_85_T3
-#plot(myBiomodEM_GreenControl_T3)
+plot(myBiomodEM_GreenControl_T3)
 
 FutureProj <- stack(file.path(outputFolder, paste("proj_env_2_85_T3/proj_env_2_85_T3_",outputFolder,"_ensemble_TSSbin.grd", sep="")))
 writeRaster(FutureProj,
@@ -632,5 +625,3 @@ writeRaster(FutureProj_c,
             overwrite= TRUE)
 
 rm(FutureProj, FutureProj_c, myBiomodEM_env_2_85_T3)
-
-
